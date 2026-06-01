@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EZ.Job.Recurring/EZ.Job.Recurring.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/EZ.Job.Recurring.Sample/EZ.Job.Recurring.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EZ.Job.Recurring.Tests/EZ.Job.Recurring.Tests.csproj" />
+  </Folder>
+</Solution>
