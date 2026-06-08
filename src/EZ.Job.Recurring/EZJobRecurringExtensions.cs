@@ -14,12 +14,15 @@ public static class EZJobRecurringExtensions
         builder.Options.RecurringWorkerCount = options.WorkerCount;
         builder.Options.RecurringPollIntervalSeconds = options.PollIntervalSeconds;
 
-        var manager = new RecurringJobManager();
-        manager.AddInitialDefinitions(options.Definitions);
-
         builder.Services.AddSingleton<RecurringChannel>();
-        builder.Services.AddSingleton<RecurringJobManager>(manager);
-        builder.Services.AddSingleton<IRecurringJobManager>(manager);
+        builder.Services.AddSingleton(sp =>
+        {
+            var store = sp.GetRequiredService<IRecurringStore>();
+            var manager = new RecurringJobManager(store);
+            manager.AddInitialDefinitionsAsync(options.Definitions).GetAwaiter().GetResult();
+            return manager;
+        });
+        builder.Services.AddSingleton<IRecurringJobManager>(sp => sp.GetRequiredService<RecurringJobManager>());
         builder.Services.AddSingleton<RecurringJobScheduler>();
         builder.Services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RecurringJobScheduler>());
 

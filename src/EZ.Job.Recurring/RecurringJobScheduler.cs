@@ -7,18 +7,18 @@ namespace EZJob.Recurring;
 
 internal sealed class RecurringJobScheduler : BackgroundService
 {
-    private readonly RecurringJobManager _manager;
+    private readonly IRecurringStore _recurringStore;
     private readonly IJobStore _store;
     private readonly Channel<Job> _channel;
     private readonly int _pollIntervalSeconds;
 
     public RecurringJobScheduler(
-        RecurringJobManager manager,
+        IRecurringStore recurringStore,
         IJobStore store,
         RecurringChannel channel,
         EZJobOptions options)
     {
-        _manager = manager;
+        _recurringStore = recurringStore;
         _store = store;
         _channel = channel.Instance;
         _pollIntervalSeconds = options.RecurringPollIntervalSeconds;
@@ -30,13 +30,14 @@ internal sealed class RecurringJobScheduler : BackgroundService
 
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
         {
-            var definitions = _manager.GetAll();
             var now = DateTime.UtcNow;
+            var definitions = await _recurringStore.GetAllAsync(stoppingToken).ConfigureAwait(false);
 
-            foreach (var def in definitions)
+            foreach (var def in definitions.Where(d => d.IsActive))
             {
                 var cron = Cronos.CronExpression.Parse(def.CronExpression);
-                var next = cron.GetNextOccurrence(def.LastCheckUtc);
+                var lastCheck = def.LastExecutionUtc ?? def.CreatedAtUtc;
+                var next = cron.GetNextOccurrence(lastCheck);
 
                 while (next.HasValue && next.Value <= now)
                 {
@@ -49,12 +50,14 @@ internal sealed class RecurringJobScheduler : BackgroundService
                         JobStatus.Enqueued,
                         now,
                         Error: null,
-                        RecurringJobId: def.Fingerprint);
+                        StartedAt: null,
+                        CompletedAt: null,
+                        RecurringJobId: def.Id.ToString());
 
                     await _store.AddAsync(job, stoppingToken).ConfigureAwait(false);
                     _channel.Writer.TryWrite(job);
 
-                    def.LastCheckUtc = next.Value;
+                    await _recurringStore.AddOrUpdateAsync(def with { LastExecutionUtc = next.Value }, stoppingToken).ConfigureAwait(false);
                     next = cron.GetNextOccurrence(next.Value);
                 }
             }

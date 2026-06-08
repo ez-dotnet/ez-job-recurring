@@ -7,6 +7,7 @@ Agenda execuções periódicas usando expressões cron, com recuperação autom�
 ## Instalação
 
 ```bash
+dotnet add package EZ.Job.Core
 dotnet add package EZ.Job.Recurring
 ```
 
