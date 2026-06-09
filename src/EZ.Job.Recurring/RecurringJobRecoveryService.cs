@@ -30,7 +30,8 @@ internal sealed class RecurringJobRecoveryService : BackgroundService
             if (job.RecurringJobId is null) continue;
             if (!definitions.TryGetValue(job.RecurringJobId, out var def)) continue;
 
-            var cron = Cronos.CronExpression.Parse(def.CronExpression);
+            var cronFormat = def.CronExpression.Count(c => c == ' ') == 5 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+            var cron = Cronos.CronExpression.Parse(def.CronExpression, cronFormat);
 
             var nextAfterCreated = cron.GetNextOccurrence(job.CreatedAt);
             var nextAfterNow = cron.GetNextOccurrence(now);

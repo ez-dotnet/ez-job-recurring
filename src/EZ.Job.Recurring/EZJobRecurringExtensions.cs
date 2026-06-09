@@ -6,14 +6,12 @@ namespace Microsoft.Extensions.DependencyInjection;
 
 public static class EZJobRecurringExtensions
 {
-    public static EZJobBuilder AddRecurringJobs(this EZJobBuilder builder, Action<RecurringJobOptions>? configure = null)
+    public static IEZJobBuilder AddRecurringJobs(this IEZJobBuilder builder, Action<RecurringJobOptions>? configure = null)
     {
         var options = new RecurringJobOptions();
         configure?.Invoke(options);
 
-        builder.Options.RecurringWorkerCount = options.WorkerCount;
-        builder.Options.RecurringPollIntervalSeconds = options.PollIntervalSeconds;
-
+        builder.Services.AddSingleton(options);
         builder.Services.AddSingleton<RecurringChannel>();
         builder.Services.AddSingleton(sp =>
         {

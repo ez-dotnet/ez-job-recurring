@@ -35,7 +35,8 @@ internal sealed class RecurringJobScheduler : BackgroundService
 
             foreach (var def in definitions.Where(d => d.IsActive))
             {
-                var cron = Cronos.CronExpression.Parse(def.CronExpression);
+                var cronFormat = def.CronExpression.Count(c => c == ' ') == 5 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+                var cron = Cronos.CronExpression.Parse(def.CronExpression, cronFormat);
                 var lastCheck = def.LastExecutionUtc ?? def.CreatedAtUtc;
                 var next = cron.GetNextOccurrence(lastCheck);
 
