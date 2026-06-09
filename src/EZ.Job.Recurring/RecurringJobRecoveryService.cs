@@ -8,19 +8,21 @@ internal sealed class RecurringJobRecoveryService : BackgroundService
 {
     private readonly IJobStore _store;
     private readonly RecoveryChannel _channel;
-    private readonly RecurringJobManager _manager;
+    private readonly IRecurringStore _recurringStore;
 
-    public RecurringJobRecoveryService(IJobStore store, RecoveryChannel channel, RecurringJobManager manager)
+    public RecurringJobRecoveryService(IJobStore store, RecoveryChannel channel, IRecurringStore recurringStore)
     {
         _store = store;
         _channel = channel;
-        _manager = manager;
+        _recurringStore = recurringStore;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var pending = await _store.GetPendingAsync(stoppingToken).ConfigureAwait(false);
-        var definitions = _manager.GetAll().ToDictionary(d => d.Fingerprint);
+        var definitions = (await _recurringStore.GetAllAsync(stoppingToken).ConfigureAwait(false))
+            .Where(d => d.IsActive)
+            .ToDictionary(d => d.Id.ToString());
         var now = DateTime.UtcNow;
 
         foreach (var job in pending)
@@ -28,7 +30,8 @@ internal sealed class RecurringJobRecoveryService : BackgroundService
             if (job.RecurringJobId is null) continue;
             if (!definitions.TryGetValue(job.RecurringJobId, out var def)) continue;
 
-            var cron = Cronos.CronExpression.Parse(def.CronExpression);
+            var cronFormat = def.CronExpression.Count(c => c == ' ') == 5 ? CronFormat.IncludeSeconds : CronFormat.Standard;
+            var cron = Cronos.CronExpression.Parse(def.CronExpression, cronFormat);
 
             var nextAfterCreated = cron.GetNextOccurrence(job.CreatedAt);
             var nextAfterNow = cron.GetNextOccurrence(now);
