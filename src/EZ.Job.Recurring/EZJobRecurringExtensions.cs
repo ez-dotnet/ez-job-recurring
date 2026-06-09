@@ -6,20 +6,21 @@ namespace Microsoft.Extensions.DependencyInjection;
 
 public static class EZJobRecurringExtensions
 {
-    public static EZJobBuilder AddRecurringJobs(this EZJobBuilder builder, Action<RecurringJobOptions>? configure = null)
+    public static IEZJobBuilder AddRecurringJobs(this IEZJobBuilder builder, Action<RecurringJobOptions>? configure = null)
     {
         var options = new RecurringJobOptions();
         configure?.Invoke(options);
 
-        builder.Options.RecurringWorkerCount = options.WorkerCount;
-        builder.Options.RecurringPollIntervalSeconds = options.PollIntervalSeconds;
-
-        var manager = new RecurringJobManager();
-        manager.AddInitialDefinitions(options.Definitions);
-
+        builder.Services.AddSingleton(options);
         builder.Services.AddSingleton<RecurringChannel>();
-        builder.Services.AddSingleton<RecurringJobManager>(manager);
-        builder.Services.AddSingleton<IRecurringJobManager>(manager);
+        builder.Services.AddSingleton(sp =>
+        {
+            var store = sp.GetRequiredService<IRecurringStore>();
+            var manager = new RecurringJobManager(store);
+            manager.AddInitialDefinitionsAsync(options.Definitions).GetAwaiter().GetResult();
+            return manager;
+        });
+        builder.Services.AddSingleton<IRecurringJobManager>(sp => sp.GetRequiredService<RecurringJobManager>());
         builder.Services.AddSingleton<RecurringJobScheduler>();
         builder.Services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RecurringJobScheduler>());
 
